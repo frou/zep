@@ -44,6 +44,10 @@ typedef struct buffer_t
 	char w_rows;              /* no. of rows of text in window */
 	int b_row;                /* cursor row */
 	int b_col;                /* cursor col */
+	// @todo Add a `b_col_goal` field to `buffer_t` and use it like the Sublime Text `xpos` concept
+	// @body Emacs proper talks about the "Goal Column" concept, but usually in the sense of
+	// @body setting it explicitly to override the default behaviour. All I want to recreate is
+	// @body the default behaviour (not giving the user a way to explicitly set the Goal Column)
 	char b_fname[MAX_FNAME + 1]; /* filename */
 	char b_modified;          /* was modified */
 } buffer_t;
