@@ -583,12 +583,7 @@ void search()
 
 	for (;;) {
 		refresh();
-		c = getch();
-		/* ignore control keys other than C-g, backspace, CR,  C-s, C-R, ESC */
-		if (c < 32 && c != 07 && c != 0x08 && c != 0x13 && c != 0x12 && c != 0x1b)
-			continue;
-
-		switch(c) {
+		switch(c = getch()) {
 		case 0x1b: /* esc */
 			searchtext[cpos] = '\0';
 			flushinp(); /* discard any escape sequence without writing in buffer */
@@ -597,6 +592,7 @@ void search()
 			curbp->b_point = o_point;
 			return;
 		case 0x13: /* ctrl-s, do the search */
+		case 0x0a: /* LF */
 			found = search_forward(curbp, curbp->b_point, searchtext);
 			if (found != -1 ) {
 				curbp->b_point = found;
@@ -616,7 +612,9 @@ void search()
 			msg("Search: %s", searchtext);
 			dispmsg();
 			break;
-		default:	
+		default:
+			if (!isprint(c))
+				break; /* the only non-printing chars we're interested in are handled above */
 			if (cpos < STRBUF_M - 1) {
 				searchtext[cpos++] = c;
 				searchtext[cpos] = '\0';
