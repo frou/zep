@@ -434,6 +434,8 @@ void right() { if (curbp->b_point < pos(curbp, curbp->b_ebuf)) ++curbp->b_point;
 void up() { curbp->b_point = lncolumn(curbp, upup(curbp, curbp->b_point),curbp->b_col); }
 void down() { curbp->b_point = lncolumn(curbp, dndn(curbp, curbp->b_point),curbp->b_col); }
 void lnbegin() { curbp->b_point = segstart(curbp, lnstart(curbp,curbp->b_point), curbp->b_point); }
+// @todo Add Unsaved Changes/Modifications y/n prompt
+// @body What's atto's approach?
 void quit() { done = 1; }
 
 void lnend()
@@ -458,6 +460,10 @@ void pgup()
 		up();
 	}
 }
+
+// @todo Add auto-indent support
+// @body When return is pressed, discover the indentation part of the current line
+// @body and copy it to the new line.
 
 void insert()
 {
@@ -645,6 +651,8 @@ keymap_t keymap[] = {
 	{"C-v                      ", "\x16", pgdown },
 	{"C-w kill-region          ", "\x17", cut},
 	{"C-y yank                 ", "\x19", paste},
+	// @todo Add C-z to suspend the process
+	// @body Like I did in femto
 	{"C-space set-mark         ", "\x00", set_mark },
 	{"esc @ set-mark           ", "\x1B\x40", set_mark },
 	{"esc k kill-region        ", "\x1B\x6B", cut },
