@@ -336,6 +336,7 @@ void modeline(buffer_t *bp)
 	
 	standout();
 	move(bp->w_top + bp->w_rows, 0);
+	// @todo Use proper line-drawing characters rather than ASCII-art in the modeline
 	mch = bp->b_modified ? '*' : '=';
 	sprintf(temp, "=%c " E_LABEL " == %s ", mch, bp->b_fname);
 	addstr(temp);
