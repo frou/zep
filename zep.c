@@ -694,9 +694,9 @@ int main(int argc, char **argv)
 		if (key_return != NULL) {
 			(key_return->func)();
 		} else {
-			if (*input > 31 || *input == 10 || *input == 9) /* allow TAB, NEWLINE and other control char is Not Bound */
+			if (isprint(*input) || *input == '\t' || *input == '\n')
 				insert();
-                        else
+			else
 				msg("Not bound");
 		}
 	}
