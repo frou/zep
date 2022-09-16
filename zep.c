@@ -21,7 +21,7 @@
 #define NOMARK          -1
 #define STRBUF_M        64
 
-typedef unsigned char char_t;
+typedef unsigned char Rune;
 typedef long point_t;
 
 typedef struct {
@@ -35,10 +35,10 @@ typedef struct {
 	point_t b_point;          /* the point */
 	point_t b_page;           /* start of page */
 	point_t b_epage;          /* end of page */
-	char_t *b_buf;            /* start of buffer */
-	char_t *b_ebuf;           /* end of buffer */
-	char_t *b_gap;            /* start of gap */
-	char_t *b_egap;           /* end of gap */
+	Rune *b_buf;            /* start of buffer */
+	Rune *b_ebuf;           /* end of buffer */
+	Rune *b_gap;            /* start of gap */
+	Rune *b_egap;           /* end of gap */
 	char w_top;	          /* Origin 0 top row of window */
 	char w_rows;              /* no. of rows of text in window */
 	int b_row;                /* cursor row */
@@ -58,7 +58,7 @@ KeyBinding *key_return;
 KeyBinding *key_map;
 Buffer *curbp;
 point_t nscrap = 0;
-char_t *scrap = NULL;
+Rune *scrap = NULL;
 char searchtext[STRBUF_M];
 
 Buffer* new_buffer()
@@ -99,14 +99,14 @@ int msg(char *msg, ...)
 }
 
 /* Given a buffer offset, convert it to a pointer into the buffer */
-char_t * ptr(Buffer *bp, register point_t offset)
+Rune * ptr(Buffer *bp, register point_t offset)
 {
 	if (offset < 0) return (bp->b_buf);
 	return (bp->b_buf+offset + (bp->b_buf + offset < bp->b_gap ? 0 : bp->b_egap-bp->b_gap));
 }
 
 /* Given a pointer into the buffer, convert it to a buffer offset */
-point_t pos(Buffer *bp, register char_t *cp)
+point_t pos(Buffer *bp, register Rune *cp)
 {
 	assert(bp->b_buf <= cp && cp <= bp->b_ebuf);
 	return (cp - bp->b_buf - (cp < bp->b_egap ? 0 : bp->b_egap - bp->b_gap));
@@ -115,7 +115,7 @@ point_t pos(Buffer *bp, register char_t *cp)
 /* Enlarge gap by n chars, position of gap cannot change */
 int growgap(Buffer *bp, point_t n)
 {
-	char_t *new;
+	Rune *new;
 	point_t buflen, newlen, xgap, xegap;
 	assert(bp->b_buf <= bp->b_gap);
 	assert(bp->b_gap <= bp->b_egap);
@@ -126,15 +126,15 @@ int growgap(Buffer *bp, point_t n)
     
 	/* reduce number of reallocs by growing by a minimum amount */
 	n = (n < MIN_GAP_EXPAND ? MIN_GAP_EXPAND : n);
-	newlen = buflen + n * sizeof (char_t);
+	newlen = buflen + n * sizeof (Rune);
 
 	if (buflen == 0) {
 		if (newlen < 0) fatal("Failed to allocate required memory");
-		new = (char_t*) malloc((size_t) newlen);
+		new = (Rune*) malloc((size_t) newlen);
 		if (new == NULL) fatal("Failed to allocate required memory");
 	} else {
 		if (newlen < 0) return msg("Failed to allocate required memory");
-		new = (char_t*) realloc(bp->b_buf, (size_t) newlen);
+		new = (Rune*) realloc(bp->b_buf, (size_t) newlen);
 		if (new == NULL) return msg("Failed to allocate required memory");
 	}
 
@@ -156,7 +156,7 @@ int growgap(Buffer *bp, point_t n)
 
 point_t movegap(Buffer *bp, point_t offset)
 {
-	char_t *p = ptr(bp, offset);
+	Rune *p = ptr(bp, offset);
 	while (p < bp->b_gap)
 		*--bp->b_egap = *--bp->b_gap;
 	while (bp->b_egap < p)
@@ -190,7 +190,7 @@ int insert_file(char *fn)
 	struct stat sb;
 
 	if (stat(fn, &sb) < 0) return msg("Failed to find file \"%s\".", fn);
-	if (curbp->b_egap - curbp->b_gap < sb.st_size * sizeof (char_t) && !growgap(curbp, sb.st_size))
+	if (curbp->b_egap - curbp->b_gap < sb.st_size * sizeof (Rune) && !growgap(curbp, sb.st_size))
 		return (FALSE);
 	if ((fp = fopen(fn, "r")) == NULL) return msg("Failed to open file \"%s\".", fn);
 	curbp->b_point = movegap(curbp, curbp->b_point);
@@ -200,12 +200,12 @@ int insert_file(char *fn)
 	return (TRUE);
 }
 
-char_t *get_key(KeyBinding *keys, KeyBinding **key_return)
+Rune *get_key(KeyBinding *keys, KeyBinding **key_return)
 {
 	KeyBinding *k;
 	int submatch;
-	static char_t buffer[K_BUFFER_LENGTH];
-	static char_t *record = buffer;
+	static Rune buffer[K_BUFFER_LENGTH];
+	static Rune *record = buffer;
 	*key_return = NULL;
 
 	/* if recorded bytes remain, return next recorded byte. */
@@ -222,8 +222,8 @@ char_t *get_key(KeyBinding *keys, KeyBinding **key_return)
 
 		/* if recorded bytes match any multi-byte sequence... */
 		for (k = keys, submatch = 0; k->key_bytes != NULL; ++k) {
-			char_t *p, *q;
-			for (p = buffer, q = (char_t *)k->key_bytes; *p == *q; ++p, ++q) {
+			Rune *p, *q;
+			for (p = buffer, q = (Rune *)k->key_bytes; *p == *q; ++p, ++q) {
 			        /* an exact match */
 				if (*q == '\0' && *p == '\0') {
 	    				record = buffer;
@@ -244,7 +244,7 @@ char_t *get_key(KeyBinding *keys, KeyBinding **key_return)
 /* Reverse scan for start of logical line containing offset */
 point_t lnstart(Buffer *bp, register point_t off)
 {
-	register char_t *p;
+	register Rune *p;
 	do
 		p = ptr(bp, --off);
 	while (bp->b_buf < p && *p != '\n');
@@ -254,7 +254,7 @@ point_t lnstart(Buffer *bp, register point_t off)
 /* Forward scan for start of logical line segment containing 'finish' */
 point_t segstart(Buffer *bp, point_t start, point_t finish)
 {
-	char_t *p;
+	Rune *p;
 	int c = 0;
 	point_t scan = start;
 
@@ -276,7 +276,7 @@ point_t segstart(Buffer *bp, point_t start, point_t finish)
 /* Forward scan for start of logical line segment following 'finish' */
 point_t segnext(Buffer *bp, point_t start, point_t finish)
 {
-	char_t *p;
+	Rune *p;
 	int c = 0;
 
 	point_t scan = segstart(bp, start, finish);
@@ -309,7 +309,7 @@ point_t dndn(Buffer *bp, point_t off) { return (segnext(bp, lnstart(bp,off), off
 point_t lncolumn(Buffer *bp, point_t offset, int column)
 {
 	int c = 0;
-	char_t *p;
+	Rune *p;
 	while ((p = ptr(bp, offset)) < bp->b_ebuf && *p != '\n' && c < column) {
 		c += *p == '\t' ? 8 - (c & 7) : 1;
 		++offset;
@@ -346,7 +346,7 @@ void dispmsg()
 
 void display()
 {
-	char_t *p;
+	Rune *p;
 	int i, j, k;
 	Buffer *bp = curbp;
 	
@@ -455,7 +455,7 @@ void pgup()
 // @body When return is pressed, discover the indentation part of the current line
 // @body and copy it to the new line.
 
-void insert(char_t c)
+void insert(Rune c)
 {
 	assert(curbp->b_gap <= curbp->b_egap);
 	if (curbp->b_gap == curbp->b_egap && !growgap(curbp, CHUNK)) return;
@@ -492,7 +492,7 @@ void set_mark()
 
 void copy_cut(int cut)
 {
-	char_t *p;
+	Rune *p;
 	/* if no mark or point == marker, nothing doing */
 	if (curbp->b_mark == NOMARK || curbp->b_point == curbp->b_mark) return;
 	if (scrap != NULL) {
@@ -510,10 +510,10 @@ void copy_cut(int cut)
 		p = ptr(curbp, curbp->b_mark);
 		nscrap = curbp->b_point - curbp->b_mark;
 	}
-	if ((scrap = (char_t*) malloc(nscrap)) == NULL) {
+	if ((scrap = (Rune*) malloc(nscrap)) == NULL) {
 		msg("No more memory available.");
 	} else {
-		(void)memcpy(scrap, p, nscrap * sizeof (char_t));
+		(void)memcpy(scrap, p, nscrap * sizeof (Rune));
 		if (cut) {
 			curbp->b_egap += nscrap; /* if cut expand gap down */
 			curbp->b_point = pos(curbp, curbp->b_egap); /* set point to after region */
@@ -532,7 +532,7 @@ void paste()
 		msg("Nothing to paste.");
 	} else if (nscrap < curbp->b_egap - curbp->b_gap || growgap(curbp, nscrap)) {
 		curbp->b_point = movegap(curbp, curbp->b_point);
-		memcpy(curbp->b_gap, scrap, nscrap * sizeof (char_t));
+		memcpy(curbp->b_gap, scrap, nscrap * sizeof (Rune));
 		curbp->b_gap += nscrap;
 		curbp->b_point = pos(curbp, curbp->b_egap);
 		curbp->b_modified = 1;
@@ -680,7 +680,7 @@ int main(int argc, char **argv)
 
 	while (!done) {
 		display();
-		char_t input = *(get_key(key_map, &key_return));
+		Rune input = *(get_key(key_map, &key_return));
 		if (key_return != NULL) {
 			(key_return->func)();
 		} else {
