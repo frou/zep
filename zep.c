@@ -54,7 +54,6 @@ typedef struct {
 int done;
 int msgflag;
 char msgline[TEMPBUF];
-KeyBinding *key_return;
 KeyBinding *key_map;
 Buffer *curbp;
 Point nscrap = 0;
@@ -680,9 +679,10 @@ int main(int argc, char **argv)
 
 	while (!done) {
 		display();
-		Rune input = *(get_key(key_map, &key_return));
-		if (key_return != NULL) {
-			(key_return->func)();
+		KeyBinding *binding;
+		Rune input = *(get_key(key_map, &binding));
+		if (binding != NULL) {
+			(binding->func)();
 		} else {
 			if (isprint(input) || input == '\t' || input == '\n')
 				insert(input);
