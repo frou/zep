@@ -30,8 +30,7 @@ typedef struct {
 	void (*func)(void);
 } KeyBinding;
 
-typedef struct buffer_t
-{
+typedef struct {
 	point_t b_mark;	     	  /* the mark */
 	point_t b_point;          /* the point */
 	point_t b_page;           /* start of page */
@@ -50,21 +49,21 @@ typedef struct buffer_t
 	// @body the default behaviour (not giving the user a way to explicitly set the Goal Column)
 	char b_fname[MAX_FNAME + 1]; /* filename */
 	char b_modified;          /* was modified */
-} buffer_t;
+} Buffer;
 
 int done;
 int msgflag;
 char msgline[TEMPBUF];
 KeyBinding *key_return;
 KeyBinding *key_map;
-buffer_t *curbp;
+Buffer *curbp;
 point_t nscrap = 0;
 char_t *scrap = NULL;
 char searchtext[STRBUF_M];
 
-buffer_t* new_buffer()
+Buffer* new_buffer()
 {
-	buffer_t *bp = (buffer_t *)malloc(sizeof(buffer_t));
+	Buffer *bp = (Buffer *)malloc(sizeof(Buffer));
 	assert(bp != NULL);
 	bp->b_point = 0;
 	bp->b_mark = NOMARK;
@@ -100,21 +99,21 @@ int msg(char *msg, ...)
 }
 
 /* Given a buffer offset, convert it to a pointer into the buffer */
-char_t * ptr(buffer_t *bp, register point_t offset)
+char_t * ptr(Buffer *bp, register point_t offset)
 {
 	if (offset < 0) return (bp->b_buf);
 	return (bp->b_buf+offset + (bp->b_buf + offset < bp->b_gap ? 0 : bp->b_egap-bp->b_gap));
 }
 
 /* Given a pointer into the buffer, convert it to a buffer offset */
-point_t pos(buffer_t *bp, register char_t *cp)
+point_t pos(Buffer *bp, register char_t *cp)
 {
 	assert(bp->b_buf <= cp && cp <= bp->b_ebuf);
 	return (cp - bp->b_buf - (cp < bp->b_egap ? 0 : bp->b_egap - bp->b_gap));
 }
 
 /* Enlarge gap by n chars, position of gap cannot change */
-int growgap(buffer_t *bp, point_t n)
+int growgap(Buffer *bp, point_t n)
 {
 	char_t *new;
 	point_t buflen, newlen, xgap, xegap;
@@ -155,7 +154,7 @@ int growgap(buffer_t *bp, point_t n)
 	return (TRUE);
 }
 
-point_t movegap(buffer_t *bp, point_t offset)
+point_t movegap(Buffer *bp, point_t offset)
 {
 	char_t *p = ptr(bp, offset);
 	while (p < bp->b_gap)
@@ -243,7 +242,7 @@ char_t *get_key(KeyBinding *keys, KeyBinding **key_return)
 }
 
 /* Reverse scan for start of logical line containing offset */
-point_t lnstart(buffer_t *bp, register point_t off)
+point_t lnstart(Buffer *bp, register point_t off)
 {
 	register char_t *p;
 	do
@@ -253,7 +252,7 @@ point_t lnstart(buffer_t *bp, register point_t off)
 }
 
 /* Forward scan for start of logical line segment containing 'finish' */
-point_t segstart(buffer_t *bp, point_t start, point_t finish)
+point_t segstart(Buffer *bp, point_t start, point_t finish)
 {
 	char_t *p;
 	int c = 0;
@@ -275,7 +274,7 @@ point_t segstart(buffer_t *bp, point_t start, point_t finish)
 }
 
 /* Forward scan for start of logical line segment following 'finish' */
-point_t segnext(buffer_t *bp, point_t start, point_t finish)
+point_t segnext(Buffer *bp, point_t start, point_t finish)
 {
 	char_t *p;
 	int c = 0;
@@ -292,7 +291,7 @@ point_t segnext(buffer_t *bp, point_t start, point_t finish)
 }
 
 /* Move up one screen line */
-point_t upup(buffer_t *bp, point_t off)
+point_t upup(Buffer *bp, point_t off)
 {
 	point_t curr = lnstart(bp, off);
 	point_t seg = segstart(bp, curr, off);
@@ -304,10 +303,10 @@ point_t upup(buffer_t *bp, point_t off)
 }
 
 /* Move down one screen line */
-point_t dndn(buffer_t *bp, point_t off) { return (segnext(bp, lnstart(bp,off), off)); }
+point_t dndn(Buffer *bp, point_t off) { return (segnext(bp, lnstart(bp,off), off)); }
 
 /* Return the offset of a column on the specified line */
-point_t lncolumn(buffer_t *bp, point_t offset, int column)
+point_t lncolumn(Buffer *bp, point_t offset, int column)
 {
 	int c = 0;
 	char_t *p;
@@ -318,7 +317,7 @@ point_t lncolumn(buffer_t *bp, point_t offset, int column)
 	return (offset);
 }
 
-void modeline(buffer_t *bp)
+void modeline(Buffer *bp)
 {
 	int i;
 	char temp[TEMPBUF];
@@ -349,7 +348,7 @@ void display()
 {
 	char_t *p;
 	int i, j, k;
-	buffer_t *bp = curbp;
+	Buffer *bp = curbp;
 	
 	/* find start of screen, handle scroll up off page or top of file  */
 	/* point is always within b_page and b_epage */
@@ -555,7 +554,7 @@ void killtoeol()
 	}
 }
 
-point_t search_forward(buffer_t *bp, point_t start_p, char *stext)
+point_t search_forward(Buffer *bp, point_t start_p, char *stext)
 {
 	point_t end_p = pos(bp, bp->b_ebuf);
 	point_t p,pp;
