@@ -22,7 +22,7 @@
 #define STRBUF_M        64
 
 typedef unsigned char Rune;
-typedef long point_t;
+typedef ssize_t Point; // Byte index, or not found (< 0)
 
 typedef struct {
 	char *key_desc;                 /* name of bound function */
@@ -31,10 +31,10 @@ typedef struct {
 } KeyBinding;
 
 typedef struct {
-	point_t b_mark;	     	  /* the mark */
-	point_t b_point;          /* the point */
-	point_t b_page;           /* start of page */
-	point_t b_epage;          /* end of page */
+	Point b_mark;	     	  /* the mark */
+	Point b_point;          /* the point */
+	Point b_page;           /* start of page */
+	Point b_epage;          /* end of page */
 	Rune *b_buf;            /* start of buffer */
 	Rune *b_ebuf;           /* end of buffer */
 	Rune *b_gap;            /* start of gap */
@@ -57,7 +57,7 @@ char msgline[TEMPBUF];
 KeyBinding *key_return;
 KeyBinding *key_map;
 Buffer *curbp;
-point_t nscrap = 0;
+Point nscrap = 0;
 Rune *scrap = NULL;
 char searchtext[STRBUF_M];
 
@@ -99,24 +99,24 @@ int msg(char *msg, ...)
 }
 
 /* Given a buffer offset, convert it to a pointer into the buffer */
-Rune * ptr(Buffer *bp, register point_t offset)
+Rune * ptr(Buffer *bp, register Point offset)
 {
 	if (offset < 0) return (bp->b_buf);
 	return (bp->b_buf+offset + (bp->b_buf + offset < bp->b_gap ? 0 : bp->b_egap-bp->b_gap));
 }
 
 /* Given a pointer into the buffer, convert it to a buffer offset */
-point_t pos(Buffer *bp, register Rune *cp)
+Point pos(Buffer *bp, register Rune *cp)
 {
 	assert(bp->b_buf <= cp && cp <= bp->b_ebuf);
 	return (cp - bp->b_buf - (cp < bp->b_egap ? 0 : bp->b_egap - bp->b_gap));
 }
 
 /* Enlarge gap by n chars, position of gap cannot change */
-int growgap(Buffer *bp, point_t n)
+int growgap(Buffer *bp, Point n)
 {
 	Rune *new;
-	point_t buflen, newlen, xgap, xegap;
+	Point buflen, newlen, xgap, xegap;
 	assert(bp->b_buf <= bp->b_gap);
 	assert(bp->b_gap <= bp->b_egap);
 	assert(bp->b_egap <= bp->b_ebuf);
@@ -154,7 +154,7 @@ int growgap(Buffer *bp, point_t n)
 	return (TRUE);
 }
 
-point_t movegap(Buffer *bp, point_t offset)
+Point movegap(Buffer *bp, Point offset)
 {
 	Rune *p = ptr(bp, offset);
 	while (p < bp->b_gap)
@@ -170,11 +170,11 @@ point_t movegap(Buffer *bp, point_t offset)
 void save()
 {
 	FILE *fp;
-	point_t length;
+	Point length;
 	fp = fopen(curbp->b_fname, "w");
 	if (fp == NULL) msg("Failed to open file \"%s\".", curbp->b_fname);
-	(void) movegap(curbp, (point_t) 0);
-	length = (point_t) (curbp->b_ebuf - curbp->b_egap);
+	(void) movegap(curbp, (Point) 0);
+	length = (Point) (curbp->b_ebuf - curbp->b_egap);
 	if (fwrite(curbp->b_egap, sizeof (char), (size_t) length, fp) != length) 
 		msg("Failed to write file \"%s\".", curbp->b_fname);
 	fclose(fp);
@@ -242,7 +242,7 @@ Rune *get_key(KeyBinding *keys, KeyBinding **key_return)
 }
 
 /* Reverse scan for start of logical line containing offset */
-point_t lnstart(Buffer *bp, register point_t off)
+Point lnstart(Buffer *bp, register Point off)
 {
 	register Rune *p;
 	do
@@ -252,11 +252,11 @@ point_t lnstart(Buffer *bp, register point_t off)
 }
 
 /* Forward scan for start of logical line segment containing 'finish' */
-point_t segstart(Buffer *bp, point_t start, point_t finish)
+Point segstart(Buffer *bp, Point start, Point finish)
 {
 	Rune *p;
 	int c = 0;
-	point_t scan = start;
+	Point scan = start;
 
 	while (scan < finish) {
 		p = ptr(bp, scan);
@@ -274,12 +274,12 @@ point_t segstart(Buffer *bp, point_t start, point_t finish)
 }
 
 /* Forward scan for start of logical line segment following 'finish' */
-point_t segnext(Buffer *bp, point_t start, point_t finish)
+Point segnext(Buffer *bp, Point start, Point finish)
 {
 	Rune *p;
 	int c = 0;
 
-	point_t scan = segstart(bp, start, finish);
+	Point scan = segstart(bp, start, finish);
 	for (;;) {
 		p = ptr(bp, scan);
 		if (bp->b_ebuf <= p || COLS <= c) break;
@@ -291,10 +291,10 @@ point_t segnext(Buffer *bp, point_t start, point_t finish)
 }
 
 /* Move up one screen line */
-point_t upup(Buffer *bp, point_t off)
+Point upup(Buffer *bp, Point off)
 {
-	point_t curr = lnstart(bp, off);
-	point_t seg = segstart(bp, curr, off);
+	Point curr = lnstart(bp, off);
+	Point seg = segstart(bp, curr, off);
 	if (curr < seg)
 		off = segstart(bp, curr, seg-1);
 	else
@@ -303,10 +303,10 @@ point_t upup(Buffer *bp, point_t off)
 }
 
 /* Move down one screen line */
-point_t dndn(Buffer *bp, point_t off) { return (segnext(bp, lnstart(bp,off), off)); }
+Point dndn(Buffer *bp, Point off) { return (segnext(bp, lnstart(bp,off), off)); }
 
 /* Return the offset of a column on the specified line */
-point_t lncolumn(Buffer *bp, point_t offset, int column)
+Point lncolumn(Buffer *bp, Point offset, int column)
 {
 	int c = 0;
 	Rune *p;
@@ -554,10 +554,10 @@ void killtoeol()
 	}
 }
 
-point_t search_forward(Buffer *bp, point_t start_p, char *stext)
+Point search_forward(Buffer *bp, Point start_p, char *stext)
 {
-	point_t end_p = pos(bp, bp->b_ebuf);
-	point_t p,pp;
+	Point end_p = pos(bp, bp->b_ebuf);
+	Point p,pp;
 	char* s;
 
 	if (0 == strlen(stext)) return start_p;
@@ -574,8 +574,8 @@ void search()
 {
 	int cpos = 0;	
 	int c;
-	point_t o_point = curbp->b_point;
-	point_t found;
+	Point o_point = curbp->b_point;
+	Point found;
 	searchtext[0] = '\0';
 	msg("Search: %s", searchtext);
 	dispmsg();
