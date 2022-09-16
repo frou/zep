@@ -24,11 +24,11 @@
 typedef unsigned char char_t;
 typedef long point_t;
 
-typedef struct keymap_t {
+typedef struct {
 	char *key_desc;                 /* name of bound function */
 	char *key_bytes;		/* the string of bytes when this key is pressed */
 	void (*func)(void);
-} keymap_t;
+} KeyBinding;
 
 typedef struct buffer_t
 {
@@ -55,8 +55,8 @@ typedef struct buffer_t
 int done;
 int msgflag;
 char msgline[TEMPBUF];
-keymap_t *key_return;
-keymap_t *key_map;
+KeyBinding *key_return;
+KeyBinding *key_map;
 buffer_t *curbp;
 point_t nscrap = 0;
 char_t *scrap = NULL;
@@ -201,9 +201,9 @@ int insert_file(char *fn)
 	return (TRUE);
 }
 
-char_t *get_key(keymap_t *keys, keymap_t **key_return)
+char_t *get_key(KeyBinding *keys, KeyBinding **key_return)
 {
-	keymap_t *k;
+	KeyBinding *k;
 	int submatch;
 	static char_t buffer[K_BUFFER_LENGTH];
 	static char_t *record = buffer;
@@ -628,7 +628,7 @@ void search()
 }
 
 /* the key bindings:  desc, keys, func */
-keymap_t keymap[] = {
+KeyBinding keymap[] = {
 	{"C-a beginning-of-line    ", "\x01", lnbegin },
 	{"C-b                      ", "\x02", left },
 	{"C-d forward-delete-char  ", "\x04", delete },
