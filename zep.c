@@ -51,14 +51,17 @@ typedef struct {
 	char b_modified;          /* was modified */
 } Buffer;
 
-int done;
-int msgflag;
-char msgline[TEMPBUF];
-KeyBinding *key_map;
-Buffer *curbp;
-Point nscrap = 0;
-Rune *scrap = NULL;
-char searchtext[STRBUF_M];
+// Global state
+// @todo Include the stuff that's currently 'static' in functions into the global state struct.
+struct {
+	int done;
+	int msgflag;
+	char msgline[TEMPBUF];
+	Buffer *curbp;
+	Point nscrap;
+	Rune *scrap;
+	char searchtext[STRBUF_M];
+} g;
 
 Buffer* new_buffer()
 {
@@ -91,9 +94,9 @@ int msg(char *msg, ...)
 {
 	va_list args;
 	va_start(args, msg);
-	(void)vsprintf(msgline, msg, args);
+	(void)vsprintf(g.msgline, msg, args);
 	va_end(args);
-	msgflag = TRUE;
+	g.msgflag = TRUE;
 	return FALSE;
 }
 
@@ -170,15 +173,15 @@ void save()
 {
 	FILE *fp;
 	Point length;
-	fp = fopen(curbp->b_fname, "w");
-	if (fp == NULL) msg("Failed to open file \"%s\".", curbp->b_fname);
-	(void) movegap(curbp, (Point) 0);
-	length = (Point) (curbp->b_ebuf - curbp->b_egap);
-	if (fwrite(curbp->b_egap, sizeof (char), (size_t) length, fp) != length) 
-		msg("Failed to write file \"%s\".", curbp->b_fname);
+	fp = fopen(g.curbp->b_fname, "w");
+	if (fp == NULL) msg("Failed to open file \"%s\".", g.curbp->b_fname);
+	(void) movegap(g.curbp, (Point) 0);
+	length = (Point) (g.curbp->b_ebuf - g.curbp->b_egap);
+	if (fwrite(g.curbp->b_egap, sizeof (char), (size_t) length, fp) != length)
+		msg("Failed to write file \"%s\".", g.curbp->b_fname);
 	fclose(fp);
-	curbp->b_modified = 0;
-	msg("File \"%s\" %ld bytes saved.", curbp->b_fname, pos(curbp, curbp->b_ebuf));
+	g.curbp->b_modified = 0;
+	msg("File \"%s\" %ld bytes saved.", g.curbp->b_fname, pos(g.curbp, g.curbp->b_ebuf));
 }
 
 /* reads file into buffer at point */
@@ -189,11 +192,11 @@ int insert_file(char *fn)
 	struct stat sb;
 
 	if (stat(fn, &sb) < 0) return msg("Failed to find file \"%s\".", fn);
-	if (curbp->b_egap - curbp->b_gap < sb.st_size * sizeof (Rune) && !growgap(curbp, sb.st_size))
+	if (g.curbp->b_egap - g.curbp->b_gap < sb.st_size * sizeof (Rune) && !growgap(g.curbp, sb.st_size))
 		return (FALSE);
 	if ((fp = fopen(fn, "r")) == NULL) return msg("Failed to open file \"%s\".", fn);
-	curbp->b_point = movegap(curbp, curbp->b_point);
-	curbp->b_gap += len = fread(curbp->b_gap, sizeof (char), (size_t) sb.st_size, fp);
+	g.curbp->b_point = movegap(g.curbp, g.curbp->b_point);
+	g.curbp->b_gap += len = fread(g.curbp->b_gap, sizeof (char), (size_t) sb.st_size, fp);
 	if (fclose(fp) != 0) return msg("Failed to close file \"%s\".", fn);
 	msg("File \"%s\" %ld bytes read.", fn, len);
 	return (TRUE);
@@ -336,9 +339,9 @@ void modeline(Buffer *bp)
 void dispmsg()
 {
 	move(MSGLINE, 0);
-	if (msgflag) {
-		addstr(msgline);
-		msgflag = FALSE;
+	if (g.msgflag) {
+		addstr(g.msgline);
+		g.msgflag = FALSE;
 	}
 	clrtoeol();
 }
@@ -347,7 +350,7 @@ void display()
 {
 	Rune *p;
 	int i, j, k;
-	Buffer *bp = curbp;
+	Buffer *bp = g.curbp;
 	
 	/* find start of screen, handle scroll up off page or top of file  */
 	/* point is always within b_page and b_epage */
@@ -416,36 +419,36 @@ void display()
 	refresh();
 }
 
-void top() { curbp->b_point = 0; }
-void bottom() {	curbp->b_epage = curbp->b_point = pos(curbp, curbp->b_ebuf); }
-void left() { if (0 < curbp->b_point) --curbp->b_point; }
-void right() { if (curbp->b_point < pos(curbp, curbp->b_ebuf)) ++curbp->b_point; }
-void up() { curbp->b_point = lncolumn(curbp, upup(curbp, curbp->b_point),curbp->b_col); }
-void down() { curbp->b_point = lncolumn(curbp, dndn(curbp, curbp->b_point),curbp->b_col); }
-void lnbegin() { curbp->b_point = segstart(curbp, lnstart(curbp,curbp->b_point), curbp->b_point); }
+void top() { g.curbp->b_point = 0; }
+void bottom() {	g.curbp->b_epage = g.curbp->b_point = pos(g.curbp, g.curbp->b_ebuf); }
+void left() { if (0 < g.curbp->b_point) --g.curbp->b_point; }
+void right() { if (g.curbp->b_point < pos(g.curbp, g.curbp->b_ebuf)) ++g.curbp->b_point; }
+void up() { g.curbp->b_point = lncolumn(g.curbp, upup(g.curbp, g.curbp->b_point),g.curbp->b_col); }
+void down() { g.curbp->b_point = lncolumn(g.curbp, dndn(g.curbp, g.curbp->b_point),g.curbp->b_col); }
+void lnbegin() { g.curbp->b_point = segstart(g.curbp, lnstart(g.curbp,g.curbp->b_point), g.curbp->b_point); }
 // @todo Add Unsaved Changes/Modifications y/n prompt
 // @body What's atto's approach?
-void quit() { done = 1; }
+void quit() { g.done = 1; }
 
 void lnend()
 {
-	curbp->b_point = dndn(curbp, curbp->b_point);
+	g.curbp->b_point = dndn(g.curbp, g.curbp->b_point);
 	left();
 }
 
 void pgdown()
 {
-	curbp->b_page = curbp->b_point = upup(curbp, curbp->b_epage);
-	while (0 < curbp->b_row--)
+	g.curbp->b_page = g.curbp->b_point = upup(g.curbp, g.curbp->b_epage);
+	while (0 < g.curbp->b_row--)
 		down();
-	curbp->b_epage = pos(curbp, curbp->b_ebuf);
+	g.curbp->b_epage = pos(g.curbp, g.curbp->b_ebuf);
 }
 
 void pgup()
 {
-	int i = curbp->w_rows;
+	int i = g.curbp->w_rows;
 	while (0 < --i) {
-		curbp->b_page = upup(curbp, curbp->b_page);
+		g.curbp->b_page = upup(g.curbp, g.curbp->b_page);
 		up();
 	}
 }
@@ -456,36 +459,36 @@ void pgup()
 
 void insert(Rune c)
 {
-	assert(curbp->b_gap <= curbp->b_egap);
-	if (curbp->b_gap == curbp->b_egap && !growgap(curbp, CHUNK)) return;
-	curbp->b_point = movegap(curbp, curbp->b_point);
-	*curbp->b_gap++ = c == '\r' ? '\n' : c;
-	curbp->b_point = pos(curbp, curbp->b_egap);
-	curbp->b_modified = 1;
+	assert(g.curbp->b_gap <= g.curbp->b_egap);
+	if (g.curbp->b_gap == g.curbp->b_egap && !growgap(g.curbp, CHUNK)) return;
+	g.curbp->b_point = movegap(g.curbp, g.curbp->b_point);
+	*g.curbp->b_gap++ = c == '\r' ? '\n' : c;
+	g.curbp->b_point = pos(g.curbp, g.curbp->b_egap);
+	g.curbp->b_modified = 1;
 }
 
 void backsp()
 {
-	curbp->b_point = movegap(curbp, curbp->b_point);
-	if (curbp->b_buf < curbp->b_gap) {
-		--curbp->b_gap;
-		curbp->b_modified = 1;
+	g.curbp->b_point = movegap(g.curbp, g.curbp->b_point);
+	if (g.curbp->b_buf < g.curbp->b_gap) {
+		--g.curbp->b_gap;
+		g.curbp->b_modified = 1;
 	}
-	curbp->b_point = pos(curbp, curbp->b_egap);
+	g.curbp->b_point = pos(g.curbp, g.curbp->b_egap);
 }
 
 void delete()
 {
-	curbp->b_point = movegap(curbp, curbp->b_point);
-	if (curbp->b_egap < curbp->b_ebuf) {
-		curbp->b_point = pos(curbp, ++curbp->b_egap);
-		curbp->b_modified = 1;
+	g.curbp->b_point = movegap(g.curbp, g.curbp->b_point);
+	if (g.curbp->b_egap < g.curbp->b_ebuf) {
+		g.curbp->b_point = pos(g.curbp, ++g.curbp->b_egap);
+		g.curbp->b_modified = 1;
 	}
 }
 
 void set_mark()
 {
-	curbp->b_mark = (curbp->b_mark == curbp->b_point ? NOMARK : curbp->b_point);
+	g.curbp->b_mark = (g.curbp->b_mark == g.curbp->b_point ? NOMARK : g.curbp->b_point);
 	msg("Mark set");
 }
 
@@ -493,48 +496,48 @@ void copy_cut(int cut)
 {
 	Rune *p;
 	/* if no mark or point == marker, nothing doing */
-	if (curbp->b_mark == NOMARK || curbp->b_point == curbp->b_mark) return;
-	if (scrap != NULL) {
-		free(scrap);
-		scrap = NULL;
+	if (g.curbp->b_mark == NOMARK || g.curbp->b_point == g.curbp->b_mark) return;
+	if (g.scrap != NULL) {
+		free(g.scrap);
+		g.scrap = NULL;
 	}
-	if (curbp->b_point < curbp->b_mark) {
+	if (g.curbp->b_point < g.curbp->b_mark) {
 		/* point above marker: move gap under point, region = marker - point */
-		(void)movegap(curbp, curbp->b_point);
-		p = ptr(curbp, curbp->b_point);
-		nscrap = curbp->b_mark - curbp->b_point;
+		(void)movegap(g.curbp, g.curbp->b_point);
+		p = ptr(g.curbp, g.curbp->b_point);
+		g.nscrap = g.curbp->b_mark - g.curbp->b_point;
 	} else {
 		/* if point below marker: move gap under marker, region = point - marker */
-		(void)movegap(curbp, curbp->b_mark);
-		p = ptr(curbp, curbp->b_mark);
-		nscrap = curbp->b_point - curbp->b_mark;
+		(void)movegap(g.curbp, g.curbp->b_mark);
+		p = ptr(g.curbp, g.curbp->b_mark);
+		g.nscrap = g.curbp->b_point - g.curbp->b_mark;
 	}
-	if ((scrap = (Rune*) malloc(nscrap)) == NULL) {
+	if ((g.scrap = (Rune*) malloc(g.nscrap)) == NULL) {
 		msg("No more memory available.");
 	} else {
-		(void)memcpy(scrap, p, nscrap * sizeof (Rune));
+		(void)memcpy(g.scrap, p, g.nscrap * sizeof (Rune));
 		if (cut) {
-			curbp->b_egap += nscrap; /* if cut expand gap down */
-			curbp->b_point = pos(curbp, curbp->b_egap); /* set point to after region */
-			curbp->b_modified = 1;
-			msg("%ld bytes cut.", nscrap);
+			g.curbp->b_egap += g.nscrap; /* if cut expand gap down */
+			g.curbp->b_point = pos(g.curbp, g.curbp->b_egap); /* set point to after region */
+			g.curbp->b_modified = 1;
+			msg("%ld bytes cut.", g.nscrap);
 		} else {
-			msg("%ld bytes copied.", nscrap);
+			msg("%ld bytes copied.", g.nscrap);
 		}
-		curbp->b_mark = NOMARK;  /* unmark */
+		g.curbp->b_mark = NOMARK;  /* unmark */
 	}
 }
 
 void paste()
 {
-	if (nscrap <= 0) {
+	if (g.nscrap <= 0) {
 		msg("Nothing to paste.");
-	} else if (nscrap < curbp->b_egap - curbp->b_gap || growgap(curbp, nscrap)) {
-		curbp->b_point = movegap(curbp, curbp->b_point);
-		memcpy(curbp->b_gap, scrap, nscrap * sizeof (Rune));
-		curbp->b_gap += nscrap;
-		curbp->b_point = pos(curbp, curbp->b_egap);
-		curbp->b_modified = 1;
+	} else if (g.nscrap < g.curbp->b_egap - g.curbp->b_gap || growgap(g.curbp, g.nscrap)) {
+		g.curbp->b_point = movegap(g.curbp, g.curbp->b_point);
+		memcpy(g.curbp->b_gap, g.scrap, g.nscrap * sizeof (Rune));
+		g.curbp->b_gap += g.nscrap;
+		g.curbp->b_point = pos(g.curbp, g.curbp->b_egap);
+		g.curbp->b_modified = 1;
 	}
 }
 
@@ -544,10 +547,10 @@ void cut() { copy_cut(TRUE); }
 void killtoeol()
 {
 	/* point = start of empty line or last char in file */
-	if (*(ptr(curbp, curbp->b_point)) == 0xa || (curbp->b_point + 1 == ((curbp->b_ebuf - curbp->b_buf) - (curbp->b_egap - curbp->b_gap))) ) {
+	if (*(ptr(g.curbp, g.curbp->b_point)) == 0xa || (g.curbp->b_point + 1 == ((g.curbp->b_ebuf - g.curbp->b_buf) - (g.curbp->b_egap - g.curbp->b_gap))) ) {
 		delete();
 	} else {
-		curbp->b_mark = curbp->b_point;
+		g.curbp->b_mark = g.curbp->b_point;
 		lnend();
 		copy_cut(TRUE);
 	}
@@ -573,51 +576,51 @@ void search()
 {
 	int cpos = 0;	
 	int c;
-	Point o_point = curbp->b_point;
+	Point o_point = g.curbp->b_point;
 	Point found;
-	searchtext[0] = '\0';
-	msg("Search: %s", searchtext);
+	g.searchtext[0] = '\0';
+	msg("Search: %s", g.searchtext);
 	dispmsg();
-	cpos = strlen(searchtext);
+	cpos = strlen(g.searchtext);
 
 	for (;;) {
 		refresh();
 		switch(c = getch()) {
 		case 0x1b: /* esc */
-			searchtext[cpos] = '\0';
+			g.searchtext[cpos] = '\0';
 			flushinp(); /* discard any escape sequence without writing in buffer */
 			return;
 		case 0x07: /* ctrl-g */
-			curbp->b_point = o_point;
+			g.curbp->b_point = o_point;
 			return;
 		case 0x13: /* ctrl-s, do the search */
 		case 0x0a: /* LF */
-			found = search_forward(curbp, curbp->b_point, searchtext);
+			found = search_forward(g.curbp, g.curbp->b_point, g.searchtext);
 			if (found != -1 ) {
-				curbp->b_point = found;
-				msg("Search: %s", searchtext);
+				g.curbp->b_point = found;
+				msg("Search: %s", g.searchtext);
 				display();
 			} else {
-				msg("Failing Search: %s", searchtext);
+				msg("Failing Search: %s", g.searchtext);
 				dispmsg();
-				curbp->b_point = 0;
+				g.curbp->b_point = 0;
 			}
 			break;
 		case 0x7f: /* del, erase */
 		case 0x08: /* backspace */
 			if (cpos == 0)
 				continue;
-			searchtext[--cpos] = '\0';
-			msg("Search: %s", searchtext);
+			g.searchtext[--cpos] = '\0';
+			msg("Search: %s", g.searchtext);
 			dispmsg();
 			break;
 		default:
 			if (!isprint(c))
 				break; /* the only non-printing chars we're interested in are handled above */
 			if (cpos < STRBUF_M - 1) {
-				searchtext[cpos++] = c;
-				searchtext[cpos] = '\0';
-				msg("Search: %s", searchtext);
+				g.searchtext[cpos++] = c;
+				g.searchtext[cpos] = '\0';
+				msg("Search: %s", g.searchtext);
 				dispmsg();
 			}
 			break;
@@ -625,44 +628,7 @@ void search()
 	}
 }
 
-/* the key bindings:  desc, keys, func */
-KeyBinding keymap[] = {
-	{"C-a beginning-of-line    ", "\x01", lnbegin },
-	{"C-b                      ", "\x02", left },
-	{"C-d forward-delete-char  ", "\x04", delete },
-	{"C-e end-of-line          ", "\x05", lnend },
-	{"C-f                      ", "\x06", right },
-	{"C-n                      ", "\x0E", down },
-	{"C-p                      ", "\x10", up },
-	{"C-h backspace            ", "\x08", backsp },
-	{"C-k kill-to-eol          ", "\x0B", killtoeol },
-	{"C-s search               ", "\x13", search },
-	{"C-v                      ", "\x16", pgdown },
-	{"C-w kill-region          ", "\x17", cut},
-	{"C-y yank                 ", "\x19", paste},
-	// @todo Add C-z to suspend the process
-	// @body Like I did in femto
-	{"C-space set-mark         ", "\x00", set_mark },
-	{"esc @ set-mark           ", "\x1B\x40", set_mark },
-	{"esc k kill-region        ", "\x1B\x6B", cut },
-	{"esc v                    ", "\x1B\x76", pgup },
-	{"esc w copy-region        ", "\x1B\x77", copy},
-	{"esc < beg-of-buf         ", "\x1B\x3C", top },
-	{"esc > end-of-buf         ", "\x1B\x3E", bottom },
-	{"up previous-line         ", "\x1B\x5B\x41", up },
-	{"down next-line           ", "\x1B\x5B\x42", down },
-	{"left backward-character  ", "\x1B\x5B\x44", left },
-	{"right forward-character  ", "\x1B\x5B\x43", right },
-	{"home beginning-of-line   ", "\x1B\x4F\x48", lnbegin },
-	{"end end-of-line          ", "\x1B\x4F\x46", lnend },
-	{"DEL forward-delete-char  ", "\x1B\x5B\x33\x7E", delete },
-	{"backspace delete-left    ", "\x7f", backsp },
-	{"PgUp                     ", "\x1B\x5B\x35\x7E",pgup },
-	{"PgDn                     ", "\x1B\x5B\x36\x7E", pgdown },
-	{"C-x C-s save-buffer      ", "\x18\x13", save },  
-	{"C-x C-c exit             ", "\x18\x03", quit },
-	{"K_ERROR                  ", NULL, NULL }
-};
+
 
 int main(int argc, char **argv)
 {
@@ -670,17 +636,55 @@ int main(int argc, char **argv)
 	initscr();	
 	raw();
 	noecho();
-	curbp = new_buffer();
+	g.curbp = new_buffer();
 	(void)insert_file(argv[1]);
-	strncpy(curbp->b_fname, argv[1], MAX_FNAME);  /* save filename regardless */
-	curbp->b_fname[MAX_FNAME] = '\0'; /* force truncation */
-	if (!growgap(curbp, CHUNK)) fatal("Failed to allocate required memory.\n");
-	key_map = keymap;
+	strncpy(g.curbp->b_fname, argv[1], MAX_FNAME);  /* save filename regardless */
+	g.curbp->b_fname[MAX_FNAME] = '\0'; /* force truncation */
+	if (!growgap(g.curbp, CHUNK)) fatal("Failed to allocate required memory.\n");
 
-	while (!done) {
+	/* the key bindings:  desc, keys, func */
+	KeyBinding keymap[] = {
+		{"C-a beginning-of-line    ", "\x01", lnbegin },
+		{"C-b                      ", "\x02", left },
+		{"C-d forward-delete-char  ", "\x04", delete },
+		{"C-e end-of-line          ", "\x05", lnend },
+		{"C-f                      ", "\x06", right },
+		{"C-n                      ", "\x0E", down },
+		{"C-p                      ", "\x10", up },
+		{"C-h backspace            ", "\x08", backsp },
+		{"C-k kill-to-eol          ", "\x0B", killtoeol },
+		{"C-s search               ", "\x13", search },
+		{"C-v                      ", "\x16", pgdown },
+		{"C-w kill-region          ", "\x17", cut},
+		{"C-y yank                 ", "\x19", paste},
+		// @todo Add C-z to suspend the process
+		// @body Like I did in femto
+		{"C-space set-mark         ", "\x00", set_mark },
+		{"esc @ set-mark           ", "\x1B\x40", set_mark },
+		{"esc k kill-region        ", "\x1B\x6B", cut },
+		{"esc v                    ", "\x1B\x76", pgup },
+		{"esc w copy-region        ", "\x1B\x77", copy},
+		{"esc < beg-of-buf         ", "\x1B\x3C", top },
+		{"esc > end-of-buf         ", "\x1B\x3E", bottom },
+		{"up previous-line         ", "\x1B\x5B\x41", up },
+		{"down next-line           ", "\x1B\x5B\x42", down },
+		{"left backward-character  ", "\x1B\x5B\x44", left },
+		{"right forward-character  ", "\x1B\x5B\x43", right },
+		{"home beginning-of-line   ", "\x1B\x4F\x48", lnbegin },
+		{"end end-of-line          ", "\x1B\x4F\x46", lnend },
+		{"DEL forward-delete-char  ", "\x1B\x5B\x33\x7E", delete },
+		{"backspace delete-left    ", "\x7f", backsp },
+		{"PgUp                     ", "\x1B\x5B\x35\x7E",pgup },
+		{"PgDn                     ", "\x1B\x5B\x36\x7E", pgdown },
+		{"C-x C-s save-buffer      ", "\x18\x13", save },
+		{"C-x C-c exit             ", "\x18\x03", quit },
+		{"K_ERROR                  ", NULL, NULL }
+	};
+
+	while (!g.done) {
 		display();
 		KeyBinding *binding;
-		Rune input = *(get_key(key_map, &binding));
+		Rune input = *(get_key(keymap, &binding));
 		if (binding) {
 			(binding->func)();
 			continue;
@@ -692,8 +696,8 @@ int main(int argc, char **argv)
 		msg("Not bound: %s (dec %d, hex 0x%X)", unctrl(input), input, input);
 	}
 
-	if (scrap != NULL) free(scrap);
-	if (curbp != NULL) free(curbp);
+	if (g.scrap != NULL) free(g.scrap);
+	if (g.curbp != NULL) free(g.curbp);
 	noraw();
 	endwin();
 	return 0;
