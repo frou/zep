@@ -61,7 +61,7 @@ typedef struct buffer_t
 #define MAX_SIZE_T      ((unsigned long) (size_t) ~0)
 
 int done;
-char_t *input;
+char_t input;
 int msgflag;
 char msgline[TEMPBUF];
 keymap_t *key_return;
@@ -471,7 +471,7 @@ void insert()
 	assert(curbp->b_gap <= curbp->b_egap);
 	if (curbp->b_gap == curbp->b_egap && !growgap(curbp, CHUNK)) return;
 	curbp->b_point = movegap(curbp, curbp->b_point);
-	*curbp->b_gap++ = *input == '\r' ? '\n' : *input;
+	*curbp->b_gap++ = input == '\r' ? '\n' : input;
 	curbp->b_point = pos(curbp, curbp->b_egap);
 	curbp->b_modified = 1;
 }
@@ -691,14 +691,14 @@ int main(int argc, char **argv)
 
 	while (!done) {
 		display();
-		input = get_key(key_map, &key_return);
+		input = *(get_key(key_map, &key_return));
 		if (key_return != NULL) {
 			(key_return->func)();
 		} else {
-			if (isprint(*input) || *input == '\t' || *input == '\n')
+			if (isprint(input) || input == '\t' || input == '\n')
 				insert();
 			else
-				msg("Not bound: %s (dec %d, hex 0x%X)", unctrl(*input), *input, *input);
+				msg("Not bound: %s (dec %d, hex 0x%X)", unctrl(input), input, input);
 		}
 	}
 
