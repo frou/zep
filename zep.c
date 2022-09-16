@@ -52,14 +52,6 @@ typedef struct buffer_t
 	char b_modified;          /* was modified */
 } buffer_t;
 
-/*
- * Some compilers define size_t as a unsigned 16 bit number while point_t and
- * off_t might be defined as a signed 32 bit number. malloc(), realloc(),
- * fread(), and fwrite() take size_t parameters, which means there will be some
- * size limits because size_t is too small of a type.
- */
-#define MAX_SIZE_T      ((unsigned long) (size_t) ~0)
-
 int done;
 char_t input;
 int msgflag;
@@ -139,11 +131,11 @@ int growgap(buffer_t *bp, point_t n)
 	newlen = buflen + n * sizeof (char_t);
 
 	if (buflen == 0) {
-		if (newlen < 0 || MAX_SIZE_T < newlen) fatal("Failed to allocate required memory");
+		if (newlen < 0) fatal("Failed to allocate required memory");
 		new = (char_t*) malloc((size_t) newlen);
 		if (new == NULL) fatal("Failed to allocate required memory");
 	} else {
-		if (newlen < 0 || MAX_SIZE_T < newlen) return msg("Failed to allocate required memory");
+		if (newlen < 0) return msg("Failed to allocate required memory");
 		new = (char_t*) realloc(bp->b_buf, (size_t) newlen);
 		if (new == NULL) return msg("Failed to allocate required memory");
 	}
@@ -200,7 +192,6 @@ int insert_file(char *fn)
 	struct stat sb;
 
 	if (stat(fn, &sb) < 0) return msg("Failed to find file \"%s\".", fn);
-	if (MAX_SIZE_T < sb.st_size) return msg("File \"%s\" is too big to load.", fn);
 	if (curbp->b_egap - curbp->b_gap < sb.st_size * sizeof (char_t) && !growgap(curbp, sb.st_size))
 		return (FALSE);
 	if ((fp = fopen(fn, "r")) == NULL) return msg("Failed to open file \"%s\".", fn);
