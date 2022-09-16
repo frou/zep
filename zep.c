@@ -681,14 +681,15 @@ int main(int argc, char **argv)
 		display();
 		KeyBinding *binding;
 		Rune input = *(get_key(key_map, &binding));
-		if (binding != NULL) {
+		if (binding) {
 			(binding->func)();
-		} else {
-			if (isprint(input) || input == '\t' || input == '\n')
-				insert(input);
-			else
-				msg("Not bound: %s (dec %d, hex 0x%X)", unctrl(input), input, input);
+			continue;
 		}
+		if (isprint(input) || input == '\t' || input == '\n') {
+			insert(input);
+			continue;
+		}
+		msg("Not bound: %s (dec %d, hex 0x%X)", unctrl(input), input, input);
 	}
 
 	if (scrap != NULL) free(scrap);
