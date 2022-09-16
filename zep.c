@@ -698,7 +698,7 @@ int main(int argc, char **argv)
 			if (isprint(*input) || *input == '\t' || *input == '\n')
 				insert();
 			else
-				msg("Not bound");
+				msg("Not bound: %s (dec %d, hex 0x%X)", unctrl(*input), *input, *input);
 		}
 	}
 
