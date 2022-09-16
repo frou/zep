@@ -1,4 +1,6 @@
-# -*- conf -*-
+zep
 
 *.o
-zep
+
+compile_flags.txt
+breakpoints.json
